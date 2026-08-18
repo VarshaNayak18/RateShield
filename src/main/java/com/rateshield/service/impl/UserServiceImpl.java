@@ -10,6 +10,7 @@ import com.rateshield.repository.UserRepository;
 import com.rateshield.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 
@@ -18,13 +19,16 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public UserServiceImpl(
-            UserRepository userRepository,
-            RoleRepository roleRepository
+        UserRepository userRepository,
+        RoleRepository roleRepository,
+        PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -55,8 +59,8 @@ public class UserServiceImpl implements UserService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
 
-        // Temporary only — we'll replace this with BCrypt in the security phase.
-        user.setPassword(request.getPassword());
+        // Password encrypted
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
 
         user.setRole(role);
 
