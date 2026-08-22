@@ -1,7 +1,8 @@
 package com.rateshield.controller;
 
-import com.rateshield.ratelimit.FixedWindowRateLimiter;
+// import com.rateshield.ratelimit.FixedWindowRateLimiter;
 import com.rateshield.ratelimit.RateLimitResult;
+import com.rateshield.ratelimit.RedisFixedWindowRateLimiter;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,10 +11,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/rate-test")
 public class RateLimitTestController {
 
-    private final FixedWindowRateLimiter rateLimiter;
+    private final RedisFixedWindowRateLimiter rateLimiter;
 
     public RateLimitTestController(
-            FixedWindowRateLimiter rateLimiter
+            RedisFixedWindowRateLimiter rateLimiter
     ) {
         this.rateLimiter = rateLimiter;
     }
