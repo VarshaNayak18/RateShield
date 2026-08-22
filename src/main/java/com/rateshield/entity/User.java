@@ -1,6 +1,8 @@
 package com.rateshield.entity;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -22,6 +24,13 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
+
+    @OneToMany(
+        mappedBy = "user",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+)
+private List<ApiKey> apiKeys = new ArrayList<>();
 
     public User() {
     }
@@ -61,4 +70,12 @@ public class User {
     public void setRole(Role role) {
         this.role = role;
     }
+
+    public List<ApiKey> getApiKeys() {
+    return apiKeys;
+}
+
+public void setApiKeys(List<ApiKey> apiKeys) {
+    this.apiKeys = apiKeys;
+}
 }
