@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+// import com.rateshield.entity.RateLimitPolicy;
+
 @Entity
 @Table(
     name = "api_keys",
@@ -35,6 +37,10 @@ public class ApiKey {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "policy_id", nullable = false)
+    private RateLimitPolicy rateLimitPolicy;
 
     public ApiKey() {
     }
@@ -89,5 +95,13 @@ public class ApiKey {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public RateLimitPolicy getRateLimitPolicy() {
+        return rateLimitPolicy;
+    }
+    
+    public void setRateLimitPolicy(RateLimitPolicy rateLimitPolicy) {
+        this.rateLimitPolicy = rateLimitPolicy;
     }
 }

@@ -3,8 +3,10 @@ package com.rateshield.service.impl;
 import com.rateshield.dto.ApiKeyRequest;
 import com.rateshield.dto.ApiKeyResponse;
 import com.rateshield.entity.ApiKey;
+import com.rateshield.entity.RateLimitPolicy;
 import com.rateshield.entity.User;
 import com.rateshield.repository.ApiKeyRepository;
+import com.rateshield.repository.RateLimitPolicyRepository;
 import com.rateshield.repository.UserRepository;
 import com.rateshield.service.ApiKeyService;
 
@@ -28,16 +30,20 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    private final RateLimitPolicyRepository rateLimitPolicyRepository;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     public ApiKeyServiceImpl(
             ApiKeyRepository apiKeyRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            RateLimitPolicyRepository rateLimitPolicyRepository
     ) {
         this.apiKeyRepository = apiKeyRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimitPolicyRepository = rateLimitPolicyRepository;
     }
 
     @Override
@@ -51,6 +57,14 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         .orElseThrow(() ->
                 new IllegalArgumentException("User not found")
         );
+
+        RateLimitPolicy policy =
+        rateLimitPolicyRepository.findByName("DEFAULT")
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Default rate limit policy not found"
+                        )
+                );
 
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
@@ -82,6 +96,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         apiKey.setCreatedAt(createdAt);
         apiKey.setExpiresAt(expiresAt);
         apiKey.setUser(user);
+        apiKey.setRateLimitPolicy(policy);
 
         ApiKey savedKey = apiKeyRepository.save(apiKey);
 

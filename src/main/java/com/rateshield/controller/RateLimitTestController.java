@@ -1,10 +1,13 @@
 package com.rateshield.controller;
 
-// import com.rateshield.ratelimit.FixedWindowRateLimiter;
+import com.rateshield.entity.ApiKey;
+import com.rateshield.repository.ApiKeyRepository;
 import com.rateshield.ratelimit.RateLimitResult;
 import com.rateshield.ratelimit.RedisFixedWindowRateLimiter;
+import com.rateshield.security.ApiKeyPrincipal;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,23 +15,47 @@ import org.springframework.web.bind.annotation.*;
 public class RateLimitTestController {
 
     private final RedisFixedWindowRateLimiter rateLimiter;
+    private final ApiKeyRepository apiKeyRepository;
 
     public RateLimitTestController(
-            RedisFixedWindowRateLimiter rateLimiter
+            RedisFixedWindowRateLimiter rateLimiter,
+            ApiKeyRepository apiKeyRepository
     ) {
         this.rateLimiter = rateLimiter;
+        this.apiKeyRepository = apiKeyRepository;
     }
 
     @GetMapping
     public ResponseEntity<String> test(
-            @RequestHeader("X-API-Key") String apiKey
+            Authentication authentication
     ) {
+
+        ApiKeyPrincipal principal =
+                (ApiKeyPrincipal) authentication.getPrincipal();
+
+        ApiKey apiKey =
+                apiKeyRepository.findByIdWithRateLimitPolicy(
+                        principal.getApiKeyId()
+                )
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "API key not found"
+                        )
+                );
+
+        int limit =
+                apiKey.getRateLimitPolicy()
+                        .getMaxRequests();
+
+        long windowSeconds =
+                apiKey.getRateLimitPolicy()
+                        .getWindowSeconds();
 
         RateLimitResult result =
                 rateLimiter.tryAcquire(
-                        apiKey,
-                        5,
-                        60
+                        "api-key:" + principal.getApiKeyId(),
+                        limit,
+                        windowSeconds
                 );
 
         if (!result.isAllowed()) {

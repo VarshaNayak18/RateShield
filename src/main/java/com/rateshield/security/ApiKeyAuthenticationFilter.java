@@ -55,16 +55,22 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                             .getName()
                             .name();
 
+            ApiKeyPrincipal principal = new ApiKeyPrincipal(
+                validatedKey.getId(),
+                validatedKey.getUser().getId(),
+                email
+        );
+            
             var authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            email,
-                            null,
-                            List.of(
-                                new SimpleGrantedAuthority(
-                                    "ROLE_" + role
-                                )
-                            )
-                    );
+            new UsernamePasswordAuthenticationToken(
+                principal,
+                null,
+                List.of(
+                    new SimpleGrantedAuthority(
+                        "ROLE_" + role
+                    )
+                )
+        );
 
             SecurityContextHolder
                     .getContext()

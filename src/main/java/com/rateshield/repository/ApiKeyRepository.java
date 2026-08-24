@@ -8,9 +8,17 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 
+// import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
 
     Optional<ApiKey> findByKeyPrefix(String keyPrefix);
+
+    @EntityGraph(attributePaths = {"rateLimitPolicy"})
+    @Query("select a from ApiKey a where a.id = :id")
+    Optional<ApiKey> findByIdWithRateLimitPolicy(@Param("id") Long id);
 
     @EntityGraph(attributePaths = {"user", "user.role"})
     Optional<ApiKey> findFirstByKeyPrefixAndActiveTrue(String keyPrefix);
