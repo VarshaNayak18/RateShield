@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 
 import com.rateshield.dto.ApiKeySummaryResponse;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/api-keys")
@@ -60,5 +61,15 @@ public ResponseEntity<List<ApiKeySummaryResponse>> getApiKeys(
                     authentication.getName()
             )
     );
+}
+
+@PreAuthorize("hasRole('ADMIN')")
+@PutMapping("/{apiKeyId}/policy/{policyId}")
+public ResponseEntity<Void> assignPolicy(
+        @PathVariable Long apiKeyId,
+        @PathVariable Long policyId
+) {
+    apiKeyService.assignPolicy(apiKeyId, policyId);
+    return ResponseEntity.noContent().build();
 }
 }

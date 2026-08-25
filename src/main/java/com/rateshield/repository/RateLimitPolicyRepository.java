@@ -10,5 +10,7 @@ public interface RateLimitPolicyRepository
 
     Optional<RateLimitPolicy> findByName(String name);
 
+    Optional<RateLimitPolicy> findByIdAndActiveTrue(Long id);
+
     boolean existsByName(String name);
 }

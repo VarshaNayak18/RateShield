@@ -19,4 +19,6 @@ public interface ApiKeyService {
             Long apiKeyId,
             String email
     );
+
+    void assignPolicy(Long apiKeyId, Long policyId);
 }

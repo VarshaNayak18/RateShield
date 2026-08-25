@@ -9,6 +9,7 @@ import com.rateshield.repository.ApiKeyRepository;
 import com.rateshield.repository.RateLimitPolicyRepository;
 import com.rateshield.repository.UserRepository;
 import com.rateshield.service.ApiKeyService;
+// import com.rateshield.entity.RateLimitPolicy;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,8 @@ import java.util.Base64;
 
 import com.rateshield.dto.ApiKeySummaryResponse;
 import java.util.List;
+
+// import com.rateshield.repository.RateLimitPolicyRepository;
 
 @Service
 public class ApiKeyServiceImpl implements ApiKeyService {
@@ -153,5 +156,31 @@ public List<ApiKeySummaryResponse> getApiKeys(String email) {
                             : null
             ))
             .toList();
+}
+
+@Override
+@Transactional
+public void assignPolicy(
+        Long apiKeyId,
+        Long policyId
+) {
+
+    ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
+            .orElseThrow(() ->
+                    new IllegalArgumentException(
+                            "API key not found"
+                    )
+            );
+
+    RateLimitPolicy policy =
+            rateLimitPolicyRepository
+                    .findByIdAndActiveTrue(policyId)
+                    .orElseThrow(() ->
+                            new IllegalArgumentException(
+                                    "Active policy not found"
+                            )
+                    );
+
+    apiKey.setRateLimitPolicy(policy);
 }
 }
