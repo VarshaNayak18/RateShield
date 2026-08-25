@@ -1,0 +1,56 @@
+services:
+
+  postgres:
+    image: postgres:18
+    container_name: rateshield-postgres
+    environment:
+      POSTGRES_DB: rateshield
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+    - rateshield-postgres-data:/var/lib/postgresql
+
+  redis:
+    image: redis:7
+    container_name: rateshield-redis
+    ports:
+      - "6379:6379"
+
+  rateshield-1:
+    build: .
+    container_name: rateshield-1
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rateshield
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVER_PORT: 8080
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+      - redis
+
+  rateshield-2:
+    build: .
+    container_name: rateshield-2
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rateshield
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVER_PORT: 8080
+    ports:
+      - "8082:8080"
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  rateshield-postgres-data:
