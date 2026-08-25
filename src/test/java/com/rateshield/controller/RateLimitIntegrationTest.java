@@ -31,6 +31,13 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 )
@@ -213,5 +220,87 @@ void shouldRejectRequestAfterRateLimitExceeded() {
             429,
             blockedResponse.getStatusCode().value()
     );
+}
+
+@Test
+void shouldHandleConcurrentRequestsAtomically() throws Exception {
+
+    int requestCount = 20;
+
+    ExecutorService executor =
+            Executors.newFixedThreadPool(requestCount);
+
+    try {
+
+        List<Callable<Integer>> tasks = new ArrayList<>();
+
+        for (int i = 0; i < requestCount; i++) {
+
+            tasks.add(() -> {
+
+                TestRestTemplate client =
+                        new TestRestTemplate();
+
+                HttpHeaders headers =
+                        new HttpHeaders();
+
+                headers.set(
+                        "X-API-Key",
+                        RAW_API_KEY
+                );
+
+                HttpEntity<Void> request =
+                        new HttpEntity<>(headers);
+
+                String url =
+                        "http://localhost:"
+                                + port
+                                + "/api/rate-test";
+
+                ResponseEntity<String> response =
+                        client.exchange(
+                                url,
+                                HttpMethod.GET,
+                                request,
+                                String.class
+                        );
+
+                return response.getStatusCode().value();
+            });
+        }
+
+        List<Future<Integer>> results =
+                executor.invokeAll(tasks);
+
+        long allowed =
+                results.stream()
+                        .mapToInt(future -> {
+                            try {
+                                return future.get();
+                            } catch (Exception ex) {
+                                throw new RuntimeException(ex);
+                            }
+                        })
+                        .filter(status -> status == 200)
+                        .count();
+
+        long rejected =
+                results.stream()
+                        .mapToInt(future -> {
+                            try {
+                                return future.get();
+                            } catch (Exception ex) {
+                                throw new RuntimeException(ex);
+                            }
+                        })
+                        .filter(status -> status == 429)
+                        .count();
+
+        assertEquals(5, allowed);
+        assertEquals(15, rejected);
+
+    } finally {
+        executor.shutdownNow();
+    }
 }
 }
