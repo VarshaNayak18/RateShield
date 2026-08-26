@@ -1,8 +1,10 @@
-## RateShield
+# RateShield
 
 A distributed, policy-driven API rate limiting service built with **Java 21, Spring Boot, PostgreSQL, Redis, Spring Security, and Docker**.
 
 RateShield provides API-key-based request throttling with dynamic policies, endpoint-specific limits, distributed Redis-backed counters, concurrent request handling, and multi-instance deployment.
+
+---
 
 ### Overview
 
@@ -26,6 +28,8 @@ The system supports:
 - Docker Compose
 - Spring Boot Actuator metrics
 
+---
+
 ### Key Features
 
 - JWT-based user authentication
@@ -44,6 +48,8 @@ The system supports:
 - Multi-instance distributed deployment
 - Docker Compose support
 - Spring Boot Actuator health and metrics
+
+---
 
 ### Architecture
 
@@ -70,6 +76,8 @@ The system supports:
         +---------------+             +---------------+
 
 ```
+
+---
 
 ### Multi-instance deployment
 
@@ -99,6 +107,8 @@ RateShield can run multiple application instances sharing the same Redis state:
 ```
 Because the rate-limit counter is stored in Redis instead of local JVM memory, both instances enforce the same limit.
 
+---
+
 ### Tech Stack
 
 | Technology | Purpose |
@@ -117,6 +127,8 @@ Because the rate-limit counter is stored in Redis instead of local JVM memory, b
 | Spring Boot Actuator | Health checks and monitoring |
 | Docker | Containerization |
 | Docker Compose | Multi-service and multi-instance deployment |
+
+---
 
 ### Rate Limiting
 
@@ -157,6 +169,7 @@ Redis Counter
    +----> 429 Too Many Requests
 ```
 
+--- 
 
 ### Distributed Rate Limiting
 
@@ -184,10 +197,15 @@ This allows multiple RateShield instances to share the same rate-limit state:
 For example, with a policy of 5 requests per 60 seconds:
 
 Request 1 → :8081 → 200
+
 Request 2 → :8082 → 200
+
 Request 3 → :8081 → 200
+
 Request 4 → :8082 → 200
+
 Request 5 → :8081 → 200
+
 Request 6 → :8082 → 429
 
 Both application instances use the same Redis counter.
@@ -195,6 +213,8 @@ Both application instances use the same Redis counter.
 Redis operations are executed atomically using a server-side script that performs:INCR, EXPIRE, TTL
 
 This prevents concurrent requests from incorrectly bypassing the configured limit.
+
+---
 
 ### Response Headers
 
@@ -207,6 +227,8 @@ RateShield exposes rate-limit information through HTTP response headers.
 | `X-RateLimit-Reset` | Seconds until the current window resets |
 | `Retry-After` | Recommended wait time after a `429` response |
 
+---
+
 ### Successful Response
 
 ```http
@@ -216,17 +238,19 @@ X-RateLimit-Remaining: 99
 X-RateLimit-Reset: 42
 ```
 
+---
+
 ### Security
 
 RateShield implements multiple security layers to protect users, API consumers, API keys, and application secrets.
 
-**JWT Authentication**
+**1. JWT Authentication**
 
 JWT-based authentication is used for user authentication and protected administrative operations.
 
 `User → POST /api/auth/login → JWT → Protected API endpoints`
 
-**API Key Authentication**
+**2. API Key Authentication**
 
 API consumers authenticate using an API key supplied through the `X-API-Key` header.
 
@@ -234,17 +258,17 @@ API consumers authenticate using an API key supplied through the `X-API-Key` hea
 
 API keys are validated before the request reaches the rate-limiting layer.
 
-**Secure API Key Storage**
+**3. Secure API Key Storage**
 
 Raw API keys are not stored directly in PostgreSQL. They are securely hashed before storage, and the raw key is only exposed when it is initially created.
 
 `Raw API Key → Secure Hash → PostgreSQL`
 
-**Redis Key Protection**
+**4. Redis Key Protection**
 
 Raw API keys are not included directly in Redis rate-limit keys. A SHA-256 fingerprint is used to identify the client, preventing sensitive API-key values from being exposed in Redis.
 
-**Environment-Based Secrets**
+**5. Environment-Based Secrets**
 
 Sensitive configuration is provided through environment variables rather than hard-coded values.
 
@@ -253,17 +277,19 @@ Sensitive configuration is provided through environment variables rather than ha
 
 A `.env.example` file documents the required variables without containing real credentials. Real secrets should never be committed to Git.
 
+---
+
 ### Response Headers
 
 RateShield exposes rate-limit information through HTTP response headers so clients can track their current rate-limit status.
 
-**`X-RateLimit-Limit`** — Maximum number of requests allowed in the current rate-limit window.
+**1. `X-RateLimit-Limit`** — Maximum number of requests allowed in the current rate-limit window.
 
-**`X-RateLimit-Remaining`** — Number of requests remaining in the current window.
+**2. `X-RateLimit-Remaining`** — Number of requests remaining in the current window.
 
-**`X-RateLimit-Reset`** — Number of seconds until the current rate-limit window resets.
+**3. `X-RateLimit-Reset`** — Number of seconds until the current rate-limit window resets.
 
-**`Retry-After`** — Number of seconds the client should wait before retrying after receiving a `429 Too Many Requests` response.
+**4. `Retry-After`** — Number of seconds the client should wait before retrying after receiving a `429 Too Many Requests` response.
 
 **Example:**
 
@@ -280,6 +306,8 @@ When the limit is exceeded:
 `X-RateLimit-Reset: 6`  
 `Retry-After: 6`
 
+---
+
 ### Error Response
 
 RateShield uses a consistent JSON structure for application errors and rate-limit failures.
@@ -289,11 +317,17 @@ When the configured rate limit is exceeded, the API returns `429 Too Many Reques
 **Example:**
 
 {
+
   "timestamp": "2026-08-26T04:16:56Z",
+
   "status": 429,
+
   "error": "Too Many Requests",
+
   "message": "Rate limit exceeded",
+
   "path": "/api/rate-test"
+
 }
 
 **Response fields:**
@@ -306,15 +340,17 @@ When the configured rate limit is exceeded, the API returns `429 Too Many Reques
 
 This provides clients with a predictable error format that is easy to process programmatically.
 
+---
+
 ### API Endpoints
 
 RateShield exposes REST APIs for authentication, API key management, rate-limit policies, endpoint policies, and rate-limit testing.
 
-#### Authentication
+#### 1. Authentication
 
 `POST /api/auth/login` — Authenticate a user and obtain a JWT.
 
-#### API Keys
+#### 2. API Keys
 
 `POST /api/api-keys` — Create a new API key.
 
@@ -322,7 +358,7 @@ RateShield exposes REST APIs for authentication, API key management, rate-limit 
 
 `PUT /api/api-keys/{apiKeyId}/policy/{policyId}` — Assign a rate-limit policy to an API key. Requires `ADMIN` authorization.
 
-#### Rate-Limit Policies
+#### 3. Rate-Limit Policies
 
 `POST /api/policies` — Create a rate-limit policy.
 
@@ -336,7 +372,7 @@ RateShield exposes REST APIs for authentication, API key management, rate-limit 
 
 Policy management requires `ADMIN` authorization.
 
-#### Endpoint Policies
+#### 4. Endpoint Policies
 
 `POST /api/endpoint-policies` — Create an endpoint-specific rate-limit policy.
 
@@ -350,7 +386,7 @@ Policy management requires `ADMIN` authorization.
 
 Endpoint policy management requires `ADMIN` authorization.
 
-#### Rate-Limit Testing
+#### 5. Rate-Limit Testing
 
 `GET /api/rate-test` — Test rate limiting for a GET endpoint.
 
@@ -358,13 +394,15 @@ Endpoint policy management requires `ADMIN` authorization.
 
 Requests to the rate-test endpoints require a valid `X-API-Key` header.
 
-#### Monitoring
+#### 6. Monitoring
 
 `GET /actuator/health` — Check application health.
 
 `GET /actuator/metrics/rate_limit.allowed` — View the number of allowed rate-limited requests.
 
 `GET /actuator/metrics/rate_limit.rejected` — View the number of rejected rate-limited requests.
+
+---
 
 ### Project Structure
 
@@ -402,20 +440,22 @@ rateshield/
 
 ```
 
-Controllers handle incoming HTTP requests and API responses.
-Services contain business logic for users, API keys, policies, and endpoint policies.
-Entities represent PostgreSQL data such as users, roles, API keys, rate-limit policies, and endpoint policies.
-Repositories provide database access through Spring Data JPA.
-Security contains JWT authentication, API-key authentication, validation, and security configuration.
-Rate Limiting contains the fixed-window algorithm, Redis-backed limiter, endpoint-policy resolution, client-key generation, and rate-limit result handling.
-DTOs define request and response models used by the REST APIs.
-Exception Handling provides consistent application error responses.
+- Controllers handle incoming HTTP requests and API responses.
+- Services contain business logic for users, API keys, policies, and endpoint policies.
+- Entities represent PostgreSQL data such as users, roles, API keys, rate-limit policies, and endpoint policies.
+- Repositories provide database access through Spring Data JPA.
+- Security contains JWT authentication, API-key authentication, validation, and security configuration.
+- Rate Limiting contains the fixed-window algorithm, Redis-backed limiter, endpoint-policy resolution, client-key generation, and rate-limit result handling.
+- DTOs define request and response models used by the REST APIs.
+- Exception Handling provides consistent application error responses.
+
+---
 
 ### Testing
 
 RateShield uses automated testing at multiple levels to verify business logic, HTTP behavior, concurrency, and distributed rate limiting.
 
-#### Unit Testing
+#### 1. Unit Testing
 
 Unit tests cover core components such as:
 
@@ -424,7 +464,7 @@ Unit tests cover core components such as:
 - Endpoint policy resolution
 - Missing endpoint policy handling
 
-#### Integration Testing
+#### 2. Integration Testing
 
 Integration tests verify the complete request flow:
 
@@ -441,7 +481,7 @@ Example:
 `Request 5 → 200`  
 `Request 6 → 429`
 
-#### Concurrency Testing
+#### 3. Concurrency Testing
 
 RateShield also tests concurrent requests against the same API key and endpoint.
 
@@ -451,7 +491,7 @@ Example:
 
 This verifies that Redis-backed atomic operations correctly enforce the limit even when requests arrive simultaneously.
 
-#### Multi-Instance Testing
+#### 4. Multi-Instance Testing
 
 The application is deployed as two Spring Boot instances using the same Redis instance.
 
@@ -464,7 +504,7 @@ while Redis maintains a single shared rate-limit counter.
 
 This verifies that the configured limit is enforced consistently across application instances.
 
-#### Running Tests
+#### 5. Running Tests
 
 Run the complete test suite with:
 
@@ -472,9 +512,11 @@ Run the complete test suite with:
 
 The project currently contains 10 automated tests with all tests passing.
 
+---
+
 ### Run Locally
 
-#### Prerequisites
+#### 1. Prerequisites
 
 Before running RateShield locally, make sure the following are installed and available in your system environment:
 
@@ -497,7 +539,7 @@ Verify Docker Compose:
 
 `docker compose version`
 
-#### Environment Variables
+#### 2. Environment Variables
 
 RateShield uses environment variables for sensitive configuration.
 
@@ -515,7 +557,7 @@ The repository includes `.env.example` as a reference:
 
 Do not commit real passwords, JWT secrets, or other credentials to Git.
 
-#### Run with Maven
+#### 3. Run with Maven
 
 Make sure PostgreSQL and Redis are running and the required environment variables are configured.
 
@@ -535,7 +577,7 @@ To run the complete test suite:
 
 `.\mvnw.cmd test`
 
-#### Run with Docker Compose
+#### 4. Run with Docker Compose
 
 Docker Compose starts the complete distributed environment, including PostgreSQL, Redis, and two RateShield application instances.
 
@@ -569,6 +611,8 @@ Check application health:
 Stop the Docker environment:
 
 `docker compose down`
+
+---
 
 ### Git Development Structure
 
@@ -610,6 +654,8 @@ RateShield was developed incrementally using focused Git commits, with each mile
 
 This incremental development history demonstrates the evolution of RateShield from a basic Spring Boot backend into a distributed, policy-driven rate-limiting service.
 
+---
+
 ### Future Improvements
 
 Potential future enhancements include:
@@ -630,6 +676,8 @@ Potential future enhancements include:
 - CI/CD pipeline
 - Automated security scanning
 - Administrative web interface
+
+---
 
 ### Author
 
