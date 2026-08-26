@@ -6,17 +6,20 @@ public class RateLimitResult {
     private final int limit;
     private final int remaining;
     private final long retryAfterSeconds;
+    private final long resetAfterSeconds;
 
     public RateLimitResult(
             boolean allowed,
             int limit,
             int remaining,
-            long retryAfterSeconds
+            long retryAfterSeconds,
+            long resetAfterSeconds
     ) {
         this.allowed = allowed;
         this.limit = limit;
         this.remaining = remaining;
         this.retryAfterSeconds = retryAfterSeconds;
+        this.resetAfterSeconds = resetAfterSeconds;
     }
 
     public boolean isAllowed() {
@@ -33,5 +36,9 @@ public class RateLimitResult {
 
     public long getRetryAfterSeconds() {
         return retryAfterSeconds;
+    }
+
+    public long getResetAfterSeconds() {
+        return resetAfterSeconds;
     }
 }

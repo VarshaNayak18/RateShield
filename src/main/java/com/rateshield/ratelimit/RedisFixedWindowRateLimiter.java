@@ -101,12 +101,14 @@ public class RedisFixedWindowRateLimiter implements RateLimiter {
         );
 
         long retryAfter = Math.max(0, ttl);
+        long resetAfter = Math.max(0, ttl);
 
         return new RateLimitResult(
                 allowed,
                 limit,
                 remaining,
-                retryAfter
+                retryAfter,
+                resetAfter
         );
     }
 }

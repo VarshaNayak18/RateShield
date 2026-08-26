@@ -1,5 +1,6 @@
 package com.rateshield.controller;
 
+import com.rateshield.dto.ErrorResponse;
 import com.rateshield.entity.RateLimitPolicy;
 import com.rateshield.ratelimit.EndpointPolicyResolver;
 import com.rateshield.ratelimit.RateLimitResult;
@@ -12,23 +13,39 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+
 @RestController
 @RequestMapping("/api/rate-test")
 public class RateLimitTestController {
 
     private final RedisFixedWindowRateLimiter rateLimiter;
     private final EndpointPolicyResolver endpointPolicyResolver;
+    private final Counter allowedCounter;
+    private final Counter rejectedCounter;
 
     public RateLimitTestController(
             RedisFixedWindowRateLimiter rateLimiter,
-            EndpointPolicyResolver endpointPolicyResolver
+            EndpointPolicyResolver endpointPolicyResolver,
+            MeterRegistry meterRegistry
     ) {
         this.rateLimiter = rateLimiter;
         this.endpointPolicyResolver = endpointPolicyResolver;
+        this.allowedCounter =
+            Counter.builder("rate_limit.allowed")
+                    .description("Allowed rate-limited requests")
+                    .register(meterRegistry);
+        this.rejectedCounter =
+            Counter.builder("rate_limit.rejected")
+                    .description("Rejected rate-limited requests")
+                    .register(meterRegistry);
     }
 
     @GetMapping
-    public ResponseEntity<String> test(
+    public ResponseEntity<?> test(
             Authentication authentication,
             HttpServletRequest request
     ) {
@@ -46,21 +63,23 @@ public class RateLimitTestController {
         long windowSeconds = policy.getWindowSeconds();
 
         String clientKey =
-        "api-key:"
-                + principal.getApiKeyId()
-                + ":"
-                + request.getMethod()
-                + ":"
-                + request.getRequestURI();
-                
-                RateLimitResult result =
-        rateLimiter.tryAcquire(
-                clientKey,
-                limit,
-                windowSeconds
-        );
+                "api-key:"
+                        + principal.getApiKeyId()
+                        + ":"
+                        + request.getMethod()
+                        + ":"
+                        + request.getRequestURI();
+
+        RateLimitResult result =
+                rateLimiter.tryAcquire(
+                        clientKey,
+                        limit,
+                        windowSeconds
+                );
 
         if (!result.isAllowed()) {
+
+                rejectedCounter.increment();
 
             return ResponseEntity
                     .status(429)
@@ -73,13 +92,115 @@ public class RateLimitTestController {
                             "0"
                     )
                     .header(
+                            "X-RateLimit-Reset",
+                            String.valueOf(
+                                    result.getResetAfterSeconds()
+                            )
+                    )
+                    .header(
                             "Retry-After",
                             String.valueOf(
                                     result.getRetryAfterSeconds()
                             )
                     )
-                    .body("Rate limit exceeded");
+                    .body(
+                            new ErrorResponse(
+                                    Instant.now(),
+                                    429,
+                                    "Too Many Requests",
+                                    "Rate limit exceeded",
+                                    request.getRequestURI()
+                            )
+                    );
         }
+
+        allowedCounter.increment(); 
+        return ResponseEntity.ok()
+                .header(
+                        "X-RateLimit-Limit",
+                        String.valueOf(result.getLimit())
+                )
+                .header(
+                        "X-RateLimit-Remaining",
+                        String.valueOf(result.getRemaining())
+                )
+                .header(
+                        "X-RateLimit-Reset",
+                        String.valueOf(
+                                result.getResetAfterSeconds()
+                        )
+                )
+                .body("Request allowed");
+    }
+
+    @PostMapping
+    public ResponseEntity<?> testPost(
+            Authentication authentication,
+            HttpServletRequest request
+    ) {
+
+        ApiKeyPrincipal principal =
+                (ApiKeyPrincipal) authentication.getPrincipal();
+
+        RateLimitPolicy policy =
+                endpointPolicyResolver.resolve(
+                        request.getMethod(),
+                        request.getRequestURI()
+                );
+
+        String clientKey =
+                "api-key:"
+                        + principal.getApiKeyId()
+                        + ":"
+                        + request.getMethod()
+                        + ":"
+                        + request.getRequestURI();
+
+        RateLimitResult result =
+                rateLimiter.tryAcquire(
+                        clientKey,
+                        policy.getMaxRequests(),
+                        policy.getWindowSeconds()
+                );
+
+        if (!result.isAllowed()) {
+
+                rejectedCounter.increment();
+
+            return ResponseEntity
+                    .status(429)
+                    .header(
+                            "X-RateLimit-Limit",
+                            String.valueOf(result.getLimit())
+                    )
+                    .header(
+                            "X-RateLimit-Remaining",
+                            "0"
+                    )
+                    .header(
+                            "X-RateLimit-Reset",
+                            String.valueOf(
+                                    result.getResetAfterSeconds()
+                            )
+                    )
+                    .header(
+                            "Retry-After",
+                            String.valueOf(
+                                    result.getRetryAfterSeconds()
+                            )
+                    )
+                    .body(
+                            new ErrorResponse(
+                                    Instant.now(),
+                                    429,
+                                    "Too Many Requests",
+                                    "Rate limit exceeded",
+                                    request.getRequestURI()
+                            )
+                    );
+        }
+
+        allowedCounter.increment();
 
         return ResponseEntity.ok()
                 .header(
@@ -90,64 +211,12 @@ public class RateLimitTestController {
                         "X-RateLimit-Remaining",
                         String.valueOf(result.getRemaining())
                 )
-                .body("Request allowed");
-        }
-        @PostMapping
-public ResponseEntity<String> testPost(
-        Authentication authentication,
-        HttpServletRequest request
-) {
-
-    ApiKeyPrincipal principal =
-            (ApiKeyPrincipal) authentication.getPrincipal();
-
-    RateLimitPolicy policy =
-            endpointPolicyResolver.resolve(
-                    request.getMethod(),
-                    request.getRequestURI()
-            );
-
-    RateLimitResult result =
-            rateLimiter.tryAcquire(
-                    "api-key:"
-                            + principal.getApiKeyId()
-                            + ":"
-                            + request.getMethod()
-                            + ":"
-                            + request.getRequestURI(),
-                    policy.getMaxRequests(),
-                    policy.getWindowSeconds()
-            );
-
-    if (!result.isAllowed()) {
-        return ResponseEntity
-                .status(429)
                 .header(
-                        "X-RateLimit-Limit",
-                        String.valueOf(result.getLimit())
-                )
-                .header(
-                        "X-RateLimit-Remaining",
-                        "0"
-                )
-                .header(
-                        "Retry-After",
+                        "X-RateLimit-Reset",
                         String.valueOf(
-                                result.getRetryAfterSeconds()
+                                result.getResetAfterSeconds()
                         )
                 )
-                .body("Rate limit exceeded");
+                .body("POST request allowed");
     }
-
-    return ResponseEntity.ok()
-            .header(
-                    "X-RateLimit-Limit",
-                    String.valueOf(result.getLimit())
-            )
-            .header(
-                    "X-RateLimit-Remaining",
-                    String.valueOf(result.getRemaining())
-            )
-            .body("POST request allowed");
-}
 }
